@@ -1,0 +1,14 @@
+#ifndef MONA_CONFIG_VERSION_H
+#define MONA_CONFIG_VERSION_H
+
+#include "macro.hpp"
+
+#define MONA_VERSION_MAJOR 2
+#define MONA_VERSION_MINOR 0
+#define MONA_VERSION_PATCH 0
+
+#define MONA_VERSION              \
+    MONA_XSTR(MONA_VERSION_MAJOR) \
+    "." MONA_XSTR(MONA_VERSION_MINOR) "." MONA_XSTR(MONA_VERSION_PATCH)
+
+#endif
