@@ -3,7 +3,7 @@
 
 #include "macro.hpp"
 
-#define MONA_VERSION_MAJOR 2
+#define MONA_VERSION_MAJOR 1
 #define MONA_VERSION_MINOR 0
 #define MONA_VERSION_PATCH 0
 
