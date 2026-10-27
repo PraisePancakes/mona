@@ -8,6 +8,10 @@ namespace mona {
 template <typename T>
 using result = std::expected<T, std::string_view>;
 
+template <typename T>
+using results = std::vector<result<T>>;
+
+
 template <typename>
 struct stream_traits;
 
@@ -40,9 +44,7 @@ concept stream_like = requires(T v) {
 };
 
 inline auto _digit(std::string_view error) {
-    return [error](stream_like auto& is) -> result<int>
-               requires stream_like<std::remove_cvref_t<decltype(is)>>
-    {
+    return [error](stream_like auto& is) -> result<int> {
         char c = is.get();
         if (!std::isdigit(c)) {
             is.unget();
@@ -50,6 +52,17 @@ inline auto _digit(std::string_view error) {
         }
         return c - '0';
     };
-}
+};
+
+inline auto _digit() {
+    return _digit("unexpected token in _digit parser");
+};
+
+template <typename T>
+inline auto _number(std::string_view error) {
+    return [error](stream_like auto& is) -> result<T> {
+        
+    };
+};
 
 };  // namespace mona
