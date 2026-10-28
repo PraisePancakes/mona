@@ -47,12 +47,13 @@ struct parser : std::function<result<T>(std::istream&)> {
 
 [[nodiscard]] inline parser<std::string> _match(const std::string& string_to_match, const std::string& error) noexcept {
     return [error, string_to_match](std::istream& is) -> result<std::string> {
-        int seen = 0;
+        const auto start = is.tellg();
         std::string builder{""};
-        for (seen = 0; seen < string_to_match.size(); seen++) {
-            const char c = is.get();
-            if (c != string_to_match[seen]) {
-                while (seen--) is.unget();
+        for (char expected : string_to_match) {
+            const auto c = is.get();
+            if (c == std::char_traits<char>::eof() || c != expected) {
+                is.clear();
+                if (start != std::istream::pos_type(std::char_traits<char>::eof())) is.seekg(start);
                 return std::unexpected(error);
             }
             builder += c;
@@ -154,12 +155,11 @@ template <typename T>
 template <typename... Parsers>
     requires(std::is_default_constructible_v<typename Parsers::value_type> && ...)
 [[nodiscard]] inline auto _sequence(Parsers&&... ps) noexcept
-    -> parser<std::tuple<typename std::remove_cvref_t<decltype(std::forward<Parsers>(ps))>::value_type...>> {
-    using tuple_type = std::tuple<typename std::remove_cvref_t<decltype(std::forward<Parsers>(ps))>::value_type...>;
+    -> parser<std::tuple<std::remove_cvref_t<typename Parsers::value_type>...>> {
+    using tuple_type = std::tuple<std::remove_cvref_t<typename Parsers::value_type>...>;
     using result_type = result<tuple_type>;
-    return [xt = std::make_tuple(ps...)](std::istream& is) -> result_type {
+    return [xt = std::make_tuple(std::forward<Parsers>(ps)...)](std::istream& is) -> result_type {
         std::streampos initial{is.tellg()};
-        auto old_state = is.rdstate();
         bool has_error{false};
         std::string error{""};
         tuple_type res = std::apply([&has_error, &error, &is](auto&&... args) {
@@ -173,10 +173,15 @@ template <typename... Parsers>
         },
                                     xt);
         if (!has_error) return result_type{res};
-        is.clear(old_state);
+        is.clear();
         is.seekg(initial);
         return std::unexpected(std::format("parser _sequence failed.\n[TRACE]: \n{}", error));
     };
+};
+template <typename T, typename U>
+    requires(std::is_default_constructible_v<typename T::value_type> && std::is_default_constructible_v<typename U::value_type>)
+[[nodiscard]] inline auto operator|(T&& a, U&& b) noexcept {
+    return _sequence(std::forward<T>(a), std::forward<U>(b));
 };
 
 };  // namespace mona

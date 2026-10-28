@@ -252,3 +252,35 @@ TEST_CASE("_sequence restores the original nonzero stream position") {
     CHECK_FALSE(result.has_value());
     CHECK(ss.peek() == 'z');
 }
+
+TEST_CASE("operator | parses digit followed by letter") {
+    std::stringstream ss("1a");
+
+    auto result = (mona::_digit() | mona::_letter())(ss);
+
+    REQUIRE(result.has_value());
+
+    auto [digit, letter] = result.value();
+
+    CHECK(digit == 1);
+    CHECK(letter == 'a');
+    CHECK(ss.peek() == std::char_traits<char>::eof());
+}
+
+TEST_CASE("operator | fails when second parser fails") {
+    std::stringstream ss("1!");
+
+    auto result = (mona::_digit() | mona::_letter())(ss);
+
+    CHECK_FALSE(result.has_value());
+    CHECK(ss.peek() == '1');
+}
+
+TEST_CASE("operator | fails when first parser fails") {
+    std::stringstream ss("a1");
+
+    auto result = (mona::_digit() | mona::_letter())(ss);
+
+    CHECK_FALSE(result.has_value());
+    CHECK(ss.peek() == 'a');
+}
