@@ -159,6 +159,7 @@ template <typename... Parsers>
     using result_type = result<tuple_type>;
     return [xt = std::make_tuple(ps...)](std::istream& is) -> result_type {
         std::streampos initial{is.tellg()};
+        auto old_state = is.rdstate();
         bool has_error{false};
         std::string error{""};
         tuple_type res = std::apply([&has_error, &error, &is](auto&&... args) {
@@ -172,6 +173,7 @@ template <typename... Parsers>
         },
                                     xt);
         if (!has_error) return result_type{res};
+        is.clear(old_state);
         is.seekg(initial);
         return std::unexpected(std::format("parser _sequence failed.\n[TRACE]: \n{}", error));
     };
