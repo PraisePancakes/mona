@@ -6,7 +6,7 @@
 #include <string_view>
 namespace mona {
 template <typename T>
-using result = std::expected<T, std::string_view>;
+using result = std::expected<T, std::string>;
 
 template <typename T>
 struct parser : std::function<result<T>(std::istream&)> {
@@ -15,7 +15,7 @@ struct parser : std::function<result<T>(std::istream&)> {
     constexpr parser(parser<T> (*ptr)()) : parser(ptr()) {}
 };
 
-[[nodiscard]] inline parser<int> _digit(std::string_view error) noexcept {
+[[nodiscard]] inline parser<int> _digit(const std::string& error) noexcept {
     return [error](std::istream& is) -> result<int> {
         char v = is.get();
         if (!std::isdigit(v)) {
@@ -30,7 +30,7 @@ struct parser : std::function<result<T>(std::istream&)> {
     return _digit("unexpected token in _digit parser");
 };
 
-[[nodiscard]] inline parser<char> _match(const char char_to_match, std::string_view error) noexcept {
+[[nodiscard]] inline parser<char> _match(const char char_to_match, const std::string& error) noexcept {
     return [error, char_to_match](std::istream& is) -> result<char> {
         const char v = is.get();
         if (v != char_to_match) {
@@ -42,10 +42,10 @@ struct parser : std::function<result<T>(std::istream&)> {
 };
 
 [[nodiscard]] inline parser<char> _match(const char c) noexcept {
-    return _match(c, "unexpected token in _letter parser");
+    return _match(c, "unexpected token in _match parser");
 };
 
-[[nodiscard]] inline parser<std::string> _match(std::string_view string_to_match, std::string_view error) noexcept {
+[[nodiscard]] inline parser<std::string> _match(const std::string& string_to_match, const std::string& error) noexcept {
     return [error, string_to_match](std::istream& is) -> result<std::string> {
         int seen = 0;
         std::string builder{""};
@@ -61,11 +61,11 @@ struct parser : std::function<result<T>(std::istream&)> {
     };
 };
 
-[[nodiscard]] inline parser<std::string> _match(std::string_view s) noexcept {
+[[nodiscard]] inline parser<std::string> _match(const std::string& s) noexcept {
     return _match(s, "unexpected token in _letter parser");
 };
 
-[[nodiscard]] inline parser<char> _letter(std::string_view error) noexcept {
+[[nodiscard]] inline parser<char> _letter(const std::string& error) noexcept {
     return [error](std::istream& is) -> result<char> {
         const char c = is.get();
         if (!std::isalpha(c)) {
@@ -94,7 +94,7 @@ template <typename T>
 };
 
 template <typename T>
-[[nodiscard]] inline parser<std::vector<T>> _many_or_one(parser<T> p, std::string_view error) noexcept {
+[[nodiscard]] inline parser<std::vector<T>> _many_or_one(parser<T> p, const std::string& error) noexcept {
     return [p, error](std::istream& is) -> result<std::vector<T>> {
         std::streampos starting_pos{is.tellg()};
         auto result = p(is);
@@ -123,8 +123,13 @@ template <typename T>
         if (v1.has_value()) return v1.value();
         auto v2 = b(is);
         if (v2.has_value()) return v2.value();
-        return std::unexpected("parser _either failed, neither parser accepts the sequence");
+        return std::unexpected(std::format("parser _either failed, neither parser accepts the sequence.\n[TRACE]: \n{} \n{}", v1.error(), v2.error()));
     };
+};
+
+template <typename T>
+[[nodiscard]] inline parser<T> operator|(parser<T> a, parser<T> b) noexcept {
+    return _either(a, b);
 };
 
 };  // namespace mona
