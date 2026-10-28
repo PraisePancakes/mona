@@ -11,6 +11,7 @@ FetchContent_MakeAvailable(doctest)
 add_executable(mona_tests
 stream_like.cpp   
 digit.cpp
+match.cpp
 main.cpp
 )
 

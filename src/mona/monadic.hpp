@@ -8,10 +8,6 @@ namespace mona {
 template <typename T>
 using result = std::expected<T, std::string_view>;
 
-template <typename T>
-using results = std::vector<result<T>>;
-
-
 template <typename>
 struct stream_traits;
 
@@ -45,12 +41,13 @@ concept stream_like = requires(T v) {
 
 inline auto _digit(std::string_view error) {
     return [error](stream_like auto& is) -> result<int> {
-        char c = is.get();
-        if (!std::isdigit(c)) {
+        using value_type = typename stream_traits<std::remove_cvref_t<decltype(is)>>::value_type;
+        value_type v = is.get();
+        if (!std::isdigit(v)) {
             is.unget();
             return std::unexpected(error);
         }
-        return c - '0';
+        return v - '0';
     };
 };
 
@@ -58,11 +55,39 @@ inline auto _digit() {
     return _digit("unexpected token in _digit parser");
 };
 
-template <typename T>
-inline auto _number(std::string_view error) {
-    return [error](stream_like auto& is) -> result<T> {
-        
+template <typename CharT>
+inline auto _match(const CharT char_to_match, std::string_view error) {
+    return [error, char_to_match](stream_like auto& is) -> result<char> {
+        using value_type = typename stream_traits<std::remove_cvref_t<decltype(is)>>::value_type;
+        static_assert(std::is_same_v<value_type, CharT>, "ill-formed character type conversion, char_to_match of type CharT does not match the input stream's value_type");
+        value_type v = is.get();
+        if (v != static_cast<value_type>(char_to_match)) {
+            is.unget();
+            return std::unexpected(error);
+        }
+        return v;
     };
+};
+
+template <typename CharT>
+inline auto _match(const CharT c) {
+    return _match(c, "unexpected token in _letter parser");
+};
+
+inline auto _letter(std::string_view error) {
+    return [error](stream_like auto& is) -> result<char> {
+        using value_type = typename stream_traits<std::remove_cvref_t<decltype(is)>>::value_type;
+        value_type c = is.get();
+        if (!std::isalpha(c)) {
+            is.unget();
+            return std::unexpected(error);
+        }
+        return c;
+    };
+};
+
+inline auto _letter() {
+    return _letter("unexpected token in _letter parser");
 };
 
 };  // namespace mona
