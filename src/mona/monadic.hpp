@@ -56,8 +56,11 @@ inline auto _digit() {
 };
 
 template <typename CharT>
-inline auto _match(const CharT char_to_match, std::string_view error) {
-    return [error, char_to_match](stream_like auto& is) -> result<char> {
+    requires(!std::is_pointer_v<CharT>)
+inline auto _match(const CharT char_to_match, std::string_view error)
+    requires requires { typename std::char_traits<CharT>::char_type; }
+{
+    return [error, char_to_match](stream_like auto& is) -> result<CharT> {
         using value_type = typename stream_traits<std::remove_cvref_t<decltype(is)>>::value_type;
         value_type v = is.get();
         if (v != static_cast<value_type>(char_to_match)) {
@@ -69,8 +72,32 @@ inline auto _match(const CharT char_to_match, std::string_view error) {
 };
 
 template <typename CharT>
-inline auto _match(const CharT c) {
+    requires(!std::is_pointer_v<CharT>)
+inline auto _match(const CharT c)
+    requires requires { typename std::char_traits<CharT>::char_type; }
+{
     return _match(c, "unexpected token in _letter parser");
+};
+
+inline auto _match(std::string_view string_to_match, std::string_view error) {
+    return [error, string_to_match](stream_like auto& is) -> result<std::string> {
+        using value_type = typename stream_traits<std::remove_cvref_t<decltype(is)>>::value_type;
+        int seen = 0;
+        std::string builder{""};
+        for (seen = 0; seen < string_to_match.size(); seen++) {
+            value_type c = is.get();
+            if (c != string_to_match[seen]) {
+                while (seen--) is.unget();
+                return std::unexpected(error);
+            }
+            builder += c;
+        }
+        return builder;
+    };
+};
+
+inline auto _match(std::string_view s) {
+    return _match(s, "unexpected token in _letter parser");
 };
 
 inline auto _letter(std::string_view error) {
