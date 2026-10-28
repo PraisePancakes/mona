@@ -173,7 +173,7 @@ template <typename... Parsers>
                                     xt);
         if (!has_error) return result_type{res};
         is.seekg(initial);
-        return std::unexpected(std::format("parser _either failed, neither parser accepts the sequence.\n[TRACE]: \n{}", error));
+        return std::unexpected(std::format("parser _sequence failed.\n[TRACE]: \n{}", error));
     };
 };
 
