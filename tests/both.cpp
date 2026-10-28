@@ -67,3 +67,16 @@ TEST_CASE("_both handles empty input") {
     auto result = mona::_both(mona::_match('a'), mona::_match('b'))(ss);
     CHECK_FALSE(result.has_value());
 }
+
+TEST_CASE("_both works with many") {
+    std::stringstream ss("ababab");
+    auto result = mona::_many_or_one(mona::_both(mona::_match('a'), mona::_match('b')))(ss);
+    CHECK(result.has_value());
+    std::string test_builder{""};
+    for (auto [a, b] : result.value()) {
+        test_builder += a;
+        test_builder += b;
+    }
+    CHECK(test_builder == ss.str());
+    CHECK(ss.peek() == std::char_traits<char>::eof());
+}
