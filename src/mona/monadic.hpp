@@ -151,4 +151,30 @@ template <typename T>
     return _both(a, b);
 };
 
+template <typename... Parsers>
+    requires(std::is_default_constructible_v<typename Parsers::value_type> && ...)
+[[nodiscard]] inline auto _sequence(Parsers&&... ps) noexcept
+    -> parser<std::tuple<typename std::remove_cvref_t<decltype(std::forward<Parsers>(ps))>::value_type...>> {
+    using tuple_type = std::tuple<typename std::remove_cvref_t<decltype(std::forward<Parsers>(ps))>::value_type...>;
+    using result_type = result<tuple_type>;
+    return [xt = std::make_tuple(ps...)](std::istream& is) -> result_type {
+        std::streampos initial{is.tellg()};
+        bool has_error{false};
+        std::string error{""};
+        tuple_type res = std::apply([&has_error, &error, &is](auto&&... args) {
+            return std::tuple_cat([&has_error, &error, &is](auto&& arg) {
+                decltype(arg(is)) v = std::forward<decltype(arg)>(arg)(is);
+                if (v.has_value()) return std::make_tuple(v.value());
+                has_error = true;
+                error += v.error();
+                return std::make_tuple(typename decltype(arg(is))::value_type{});
+            }(args)...);
+        },
+                                    xt);
+        if (!has_error) return result_type{res};
+        is.seekg(initial);
+        return std::unexpected(std::format("parser _either failed, neither parser accepts the sequence.\n[TRACE]: \n{}", error));
+    };
+};
+
 };  // namespace mona

@@ -16,6 +16,7 @@ many_or_none.cpp
 many_or_one.cpp
 either.cpp
 both.cpp
+sequence.cpp
 main.cpp
 )
 
