@@ -9,9 +9,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(doctest)
 
 add_executable(mona_tests
-stream_like.cpp   
 digit.cpp
 match.cpp
+letter.cpp
+many_or_none.cpp
+many_or_one.cpp
+either.cpp
 main.cpp
 )
 
