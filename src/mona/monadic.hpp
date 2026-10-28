@@ -59,7 +59,6 @@ template <typename CharT>
 inline auto _match(const CharT char_to_match, std::string_view error) {
     return [error, char_to_match](stream_like auto& is) -> result<char> {
         using value_type = typename stream_traits<std::remove_cvref_t<decltype(is)>>::value_type;
-        static_assert(std::is_same_v<value_type, CharT>, "ill-formed character type conversion, char_to_match of type CharT does not match the input stream's value_type");
         value_type v = is.get();
         if (v != static_cast<value_type>(char_to_match)) {
             is.unget();

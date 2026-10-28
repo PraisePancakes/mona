@@ -25,4 +25,4 @@ TEST_CASE("match fails with error") {
     auto result = mona::_match('a', error)(ss);
     CHECK_FALSE(result.has_value());
     CHECK(result.error() == error);
-}
+};
