@@ -23,21 +23,20 @@ TEST_CASE("either fails") {
     auto result = mona::_either(mona::_match('1'), mona::_match('2'))(ss);
     CHECK_FALSE(result.has_value());
     CHECK(ss.peek() == 'a');
-    std::cout << result.error() << std::endl;
 };
 
-TEST_CASE("either operator| passes") {
+TEST_CASE("either operator|| passes") {
     std::stringstream ss;
     ss << "a";
-    auto result = (mona::_match('a') | mona::_match('2'))(ss);
+    auto result = (mona::_match('a') || mona::_match('2'))(ss);
     CHECK(result.has_value());
     CHECK(ss.peek() == std::char_traits<char>::eof());
 }
 
-TEST_CASE("either operator| fails") {
+TEST_CASE("either operator|| fails") {
     std::stringstream ss;
     ss << "a";
-    auto result = (mona::_match('1') | mona::_match('2'))(ss);
+    auto result = (mona::_match('1') || mona::_match('2'))(ss);
     CHECK_FALSE(result.has_value());
     CHECK(ss.peek() == 'a');
 }
