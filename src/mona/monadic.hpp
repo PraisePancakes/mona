@@ -66,6 +66,26 @@ struct parser : std::function<result<T>(std::istream&)> {
     return _match(s, "unexpected token in _letter parser");
 };
 
+[[nodiscard]] inline parser<std::string> _alnum(const std::string& error_message) {
+    return [error_message](std::istream& ss) -> result<std::string> {
+        std::string ret = "";
+        while (true) {
+            if (std::isalnum(ss.peek())) {
+                ret += ss.get();
+            } else {
+                break;
+            }
+        }
+
+        if (ret.empty()) return std::unexpected(error_message);
+        return ret;
+    };
+}
+
+[[nodiscard]] inline parser<std::string> _alnum() {
+    return _alnum("_alnum parser error");
+}
+
 [[nodiscard]] inline parser<char> _letter(const std::string& error) noexcept {
     return [error](std::istream& is) -> result<char> {
         const char c = is.get();
@@ -192,7 +212,7 @@ template <typename Func, typename T>
     return [f, parser](std::istream& is) -> result<std::invoke_result_t<Func, typename ::mona::parser<T>::value_type>> {
         auto v = parser(is);
         if (!v.has_value()) return std::unexpected(std::format("parser transformation failed.\n[TRACE]: \n{}", v.error()));
-        return f(v.value());
+        return std::invoke(f, v.value());
     };
 };
 template <typename... Ts>
