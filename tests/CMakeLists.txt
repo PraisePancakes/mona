@@ -17,6 +17,9 @@ many_or_one.cpp
 either.cpp
 both.cpp
 sequence.cpp
+transform.cpp
+any.cpp
+number_as.cpp
 main.cpp
 )
 

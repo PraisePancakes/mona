@@ -184,4 +184,100 @@ template <typename T, typename U>
     return _sequence(std::forward<T>(a), std::forward<U>(b));
 };
 
+// transform
+template <typename Func, typename T>
+    requires(!std::is_same_v<void, std::invoke_result_t<Func, typename ::mona::parser<T>::value_type>>)
+[[nodiscard]] inline auto _transform(Func f, parser<T> parser) noexcept
+    -> ::mona::parser<std::invoke_result_t<Func, typename ::mona::parser<T>::value_type>> {
+    return [f, parser](std::istream& is) -> result<std::invoke_result_t<Func, typename ::mona::parser<T>::value_type>> {
+        auto v = parser(is);
+        if (!v.has_value()) return std::unexpected(std::format("parser transformation failed.\n[TRACE]: \n{}", v.error()));
+        return f(v.value());
+    };
+};
+template <typename... Ts>
+[[nodiscard]] constexpr parser<std::tuple_element_t<0, std::tuple<Ts...>>> _any(parser<Ts> const&... ts) {
+    return [=](std::istream& is) -> result<std::tuple_element_t<0, std::tuple<Ts...>>> {
+        std::array<parser<std::tuple_element_t<0, std::tuple<Ts...>>>, sizeof...(Ts)> parsers{ts...};
+        std::string last_error;
+        std::streampos reset{is.tellg()};
+        for (auto const& v : parsers) {
+            auto val = v(is);
+            if (val) {
+                return val;
+            }
+            last_error = val.error();
+        }
+        is.clear();
+        is.seekg(reset);
+        return std::unexpected(last_error);
+    };
+}
+
+template <typename... Ts>
+[[nodiscard]] constexpr parser<std::tuple_element_t<0, std::tuple<Ts...>>> _any(const std::string& with_error, parser<Ts> const&... ts) {
+    return [=](std::istream& is) -> result<std::tuple_element_t<0, std::tuple<Ts...>>> {
+        auto v = _any(ts...)(is);
+        return v.has_value() ? v : std::unexpected(with_error);
+    };
+}
+namespace internal {
+template <typename T>
+T delegate_sto_numerical_T(const std::string& s) {
+    if constexpr (std::is_same_v<T, int> || std::is_same_v<T, unsigned int>) {
+        return std::stoi(s);
+    } else if constexpr (std::is_same_v<T, float>) {
+        return std::stof(s);
+    } else if constexpr (std::is_same_v<T, double>) {
+        return std::stod(s);
+    } else if constexpr (std::is_same_v<T, long int>) {
+        return std::stol(s);
+    } else if constexpr (std::is_same_v<T, unsigned long int>) {
+        return std::stoul(s);
+    } else if constexpr (std::is_same_v<T, unsigned long long int>) {
+        return std::stoull(s);
+    } else if constexpr (std::is_same_v<T, long long int>) {
+        return std::stoll(s);
+    }
+};
+};  // namespace internal
+template <typename T>
+    requires(std::is_integral_v<T> || std::is_floating_point_v<T>)
+[[nodiscard]] inline parser<T> _number_as(const std::string& error) noexcept {
+    return [error](std::istream& is) -> result<T> {
+        std::string ret{""};
+        std::streampos begin{is.tellg()};
+        auto digit_sequence = _transform([](const auto& digits) -> std::string {
+            std::string ret{""};
+            for (const auto& d : digits) {
+                ret += d + '0';
+            }
+            return ret;
+        },
+                                         _many_or_one(_digit()));
+        if (auto v = _match('-')(is))
+            if (v.has_value()) ret += v.value();
+        if (auto v = digit_sequence(is))
+            if (v.has_value()) ret += v.value();
+        if (auto v = _match('.')(is))
+            if (v.has_value()) ret += v.value();
+        if (auto v = digit_sequence(is))
+            if (v.has_value()) ret += v.value();
+
+        if (ret.empty()) {
+            is.clear();
+            is.seekg(begin);
+            return std::unexpected("_number_as parser failed to parse numeric");
+        }
+        try {
+            std::stoi(ret);
+        } catch (std::exception& e) {
+            is.clear();
+            is.seekg(begin);
+            return std::unexpected("_number_as parser failed to parse numeric");
+        }
+        return static_cast<T>(internal::delegate_sto_numerical_T<T>(ret));
+    };
+};
+
 };  // namespace mona

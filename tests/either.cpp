@@ -33,6 +33,14 @@ TEST_CASE("either operator|| passes") {
     CHECK(ss.peek() == std::char_traits<char>::eof());
 }
 
+TEST_CASE("either operator|| passes on multiple") {
+    std::stringstream ss;
+    ss << "a";
+    auto result = (mona::_match('a') || mona::_match('2') || mona::_match('3'))(ss);
+    CHECK(result.has_value());
+    CHECK(ss.peek() == std::char_traits<char>::eof());
+}
+
 TEST_CASE("either operator|| fails") {
     std::stringstream ss;
     ss << "a";
