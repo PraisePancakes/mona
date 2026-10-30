@@ -7,7 +7,9 @@
 namespace mona {
 template <typename T>
 using result = std::expected<T, std::string>;
-
+/**
+ * Represents a boxed parser type that can map to another boxed parser type
+ */
 template <typename T>
 struct parser : std::function<result<T>(std::istream&)> {
     using std::function<result<T>(std::istream&)>::function;
@@ -140,10 +142,14 @@ template <typename T>
 template <typename T>
 [[nodiscard]] inline parser<T> _either(parser<T> a, parser<T> b) noexcept {
     return [a, b](std::istream& is) -> result<T> {
+        std::streampos reset{is.tellg()};
+        auto old_state = is.rdstate();
         auto v1 = a(is);
         if (v1.has_value()) return v1.value();
         auto v2 = b(is);
         if (v2.has_value()) return v2.value();
+        is.clear(old_state);
+        is.seekg(reset);
         return std::unexpected(std::format("parser _either failed, neither parser accepts the sequence.\n[TRACE]: \n{} \n{}", v1.error(), v2.error()));
     };
 };
@@ -168,7 +174,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] inline parser<std::pair<T, T>> operator&&(parser<T> a, parser<T> b) noexcept {
+[[nodiscard]] inline parser<std::pair<T, T>> operator>>(parser<T> a, parser<T> b) noexcept {
     return _both(a, b);
 };
 
@@ -204,17 +210,25 @@ template <typename T, typename U>
     return _sequence(std::forward<T>(a), std::forward<U>(b));
 };
 
-// transform
 template <typename Func, typename T>
     requires(!std::is_same_v<void, std::invoke_result_t<Func, typename ::mona::parser<T>::value_type>>)
-[[nodiscard]] inline auto _transform(Func f, parser<T> parser) noexcept
-    -> ::mona::parser<std::invoke_result_t<Func, typename ::mona::parser<T>::value_type>> {
+[[nodiscard]] inline ::mona::parser<std::invoke_result_t<Func, typename ::mona::parser<T>::value_type>> _transform(Func f, parser<T> parser) noexcept {
     return [f, parser](std::istream& is) -> result<std::invoke_result_t<Func, typename ::mona::parser<T>::value_type>> {
         auto v = parser(is);
         if (!v.has_value()) return std::unexpected(std::format("parser transformation failed.\n[TRACE]: \n{}", v.error()));
         return std::invoke(f, v.value());
     };
 };
+
+template <typename Func, typename T>
+    requires(!std::is_same_v<void, std::invoke_result_t<Func, typename ::mona::result<T>::value_type>>)
+[[nodiscard]] inline std::invoke_result_t<Func, typename ::mona::result<T>::value_type> _transform_result(Func f, result<T> result) noexcept {
+    return [f, result](std::istream& is) -> ::mona::result<std::invoke_result_t<Func, typename ::mona::result<T>::value_type>> {
+        if (result.has_value()) return std::invoke(f, result.value());
+        return std::unexpected(std::format("result transformation failed.\n[TRACE]: \n{}", result.error()));
+    };
+}
+
 template <typename... Ts>
 [[nodiscard]] constexpr parser<std::tuple_element_t<0, std::tuple<Ts...>>> _any(parser<Ts> const&... ts) {
     return [=](std::istream& is) -> result<std::tuple_element_t<0, std::tuple<Ts...>>> {
@@ -243,7 +257,7 @@ template <typename... Ts>
 }
 namespace internal {
 template <typename T>
-T delegate_sto_numerical_T(const std::string& s) {
+T __delegate_sto_numerical_T(const std::string& s) {
     if constexpr (std::is_same_v<T, int> || std::is_same_v<T, unsigned int>) {
         return std::stoi(s);
     } else if constexpr (std::is_same_v<T, float>) {
@@ -296,7 +310,32 @@ template <typename T>
             is.seekg(begin);
             return std::unexpected("_number_as parser failed to parse numeric");
         }
-        return static_cast<T>(internal::delegate_sto_numerical_T<T>(ret));
+        return static_cast<T>(internal::__delegate_sto_numerical_T<T>(ret));
+    };
+};
+template <typename Func, typename T>
+[[nodiscard]] inline parser<typename std::invoke_result_t<Func, T>::value_type> _and_then(parser<T> p, Func f) {
+    using parser_type = std::invoke_result_t<Func, T>;
+    return [f, p](std::istream& is) -> result<typename parser_type::value_type> {
+        return p(is).and_then([&](const T& value) {
+            return std::invoke(f, value)(is);
+        });
+    };
+}
+template <typename T>
+[[nodiscard]] inline parser<T> _check(parser<T> p) noexcept {
+    return [p](std::istream& is) -> result<T> {
+        std::streampos reset{is.tellg()};
+        auto prev_state = is.rdstate();
+        auto v = p(is);
+        if (v.has_value()) {
+            is.clear(prev_state);
+            is.seekg(reset);
+            return v.value();
+        }
+        is.clear(prev_state);
+        is.seekg(reset);
+        return std::unexpected("_check did not satisfy the parser's condition");
     };
 };
 

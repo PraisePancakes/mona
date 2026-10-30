@@ -12,9 +12,9 @@ TEST_CASE("_both succeeds when both parsers match") {
     CHECK(ss.peek() == std::char_traits<char>::eof());
 }
 
-TEST_CASE("_both succeeds with operator&&") {
+TEST_CASE("_both succeeds with operator>>") {
     std::stringstream ss("ab");
-    auto result = (mona::_match('a') && mona::_match('b'))(ss);
+    auto result = (mona::_match('a') >> mona::_match('b'))(ss);
     REQUIRE(result.has_value());
     CHECK(result->first == 'a');
     CHECK(result->second == 'b');
