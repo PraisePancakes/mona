@@ -48,10 +48,7 @@ TEST_CASE("number_as parses integers") {
 TEST_CASE("number_as parses floating point numbers") {
     SUBCASE("parses a decimal") {
         std::stringstream ss("12.34");
-
-        auto result =
-            mona::_number_as<double>("invalid number")(ss);
-
+        auto result = mona::_number_as<double>("invalid number")(ss);
         REQUIRE(result.has_value());
         CHECK(result.value() == doctest::Approx(12.34));
     }

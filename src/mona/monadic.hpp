@@ -193,7 +193,7 @@ template <typename... Parsers>
                 decltype(arg(is)) v = std::forward<decltype(arg)>(arg)(is);
                 if (v.has_value()) return std::make_tuple(v.value());
                 has_error = true;
-                error += v.error();
+                error += v.error() + "\n";
                 return std::make_tuple(typename decltype(arg(is))::value_type{});
             }(args)...);
         },
@@ -201,7 +201,7 @@ template <typename... Parsers>
         if (!has_error) return result_type{res};
         is.clear();
         is.seekg(initial);
-        return std::unexpected(std::format("parser _sequence failed.\n[TRACE]: \n{}", error));
+        return std::unexpected(std::format("parser _sequence failed.\n[TRACE]: \n{}\n", error));
     };
 };
 template <typename T, typename U>
@@ -222,11 +222,9 @@ template <typename Func, typename T>
 
 template <typename Func, typename T>
     requires(!std::is_same_v<void, std::invoke_result_t<Func, typename ::mona::result<T>::value_type>>)
-[[nodiscard]] inline std::invoke_result_t<Func, typename ::mona::result<T>::value_type> _transform_result(Func f, result<T> result) noexcept {
-    return [f, result](std::istream& is) -> ::mona::result<std::invoke_result_t<Func, typename ::mona::result<T>::value_type>> {
-        if (result.has_value()) return std::invoke(f, result.value());
-        return std::unexpected(std::format("result transformation failed.\n[TRACE]: \n{}", result.error()));
-    };
+[[nodiscard]] inline ::mona::result<std::invoke_result_t<Func, typename ::mona::result<T>::value_type>> _transform(Func f, result<T> result) noexcept {
+    if (result.has_value()) return std::invoke(f, result.value());
+    return std::unexpected(std::format("result transformation failed.\n[TRACE]: \n{}", result.error()));
 }
 
 template <typename... Ts>

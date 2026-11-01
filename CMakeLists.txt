@@ -34,7 +34,7 @@ target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_23)
 
 option(MONA_BUILD_DEV "Build the developement bed" ON)
 if(MONA_BUILD_DEV)
-    option(MONA_BUILD_EXAMPLES "Build Mona examples" OFF)
+    option(MONA_BUILD_EXAMPLES "Build Mona examples" ON)
     option(MONA_BUILD_TESTS "Build Mona tests" ON)
     option(MONA_BUILD_BENCHMARK "Build Mona benchmarks" OFF)
     option(MONA_PROFILE "Build with profiling-friendly settings" OFF)

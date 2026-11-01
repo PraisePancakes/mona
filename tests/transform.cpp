@@ -310,3 +310,85 @@ TEST_CASE("transform composes with transform") {
         CHECK(result.value() == "[ABC]");
     }
 }
+
+TEST_CASE("_transform on results") {
+    SUBCASE("transforms a successful result") {
+        mona::result<int> input = 42;
+        auto output = mona::_transform(
+            [](int x) { return x * 2; },
+            input);
+        REQUIRE(output.has_value());
+        CHECK(output.value() == 84);
+    }
+
+    SUBCASE("transforms a result into a different type") {
+        mona::result<int> input = 42;
+
+        auto output = mona::_transform(
+            [](int x) { return std::to_string(x); },
+            input);
+
+        REQUIRE(output.has_value());
+        CHECK(output.value() == "42");
+        CHECK(std::is_same_v<
+              decltype(output),
+              mona::result<std::string> >);
+    }
+
+    SUBCASE("preserves an unsuccessful result") {
+        mona::result<int> input = std::unexpected("original error");
+
+        auto output = mona::_transform(
+            [](int x) { return x * 2; },
+            input);
+
+        CHECK_FALSE(output.has_value());
+        CHECK(output.error().find("original error") != std::string::npos);
+        CHECK(output.error().find("result transformation failed") != std::string::npos);
+    }
+
+    SUBCASE("does not invoke the transformation on failure") {
+        bool invoked = false;
+
+        mona::result<int> input = std::unexpected("failure");
+
+        auto output = mona::_transform(
+            [&invoked](int x) {
+                invoked = true;
+                return x * 2;
+            },
+            input);
+
+        CHECK_FALSE(output.has_value());
+        CHECK_FALSE(invoked);
+    }
+
+    SUBCASE("supports transformations with more complex return types") {
+        mona::result<int> input = 10;
+
+        auto output = mona::_transform(
+            [](int x) {
+                return std::pair<int, std::string>{x, std::to_string(x)};
+            },
+            input);
+
+        REQUIRE(output.has_value());
+        CHECK(output->first == 10);
+        CHECK(output->second == "10");
+    }
+
+    SUBCASE("supports function composition") {
+        mona::result<int> input = 5;
+
+        auto first = mona::_transform(
+            [](int x) { return x * 2; },
+            input);
+
+        auto second = mona::_transform(
+            [](int x) { return std::to_string(x); },
+            first);
+
+        REQUIRE(second.has_value());
+        CHECK(second.value() == "10");
+    }
+}
