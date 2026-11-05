@@ -179,10 +179,10 @@ template <typename T>
 };
 
 template <typename... Parsers>
-    requires(std::is_default_constructible_v<typename Parsers::value_type> && ...)
+    requires(std::is_default_constructible_v<typename std::remove_cvref_t<Parsers>::value_type> && ...)
 [[nodiscard]] inline auto _sequence(Parsers&&... ps) noexcept
-    -> parser<std::tuple<std::remove_cvref_t<typename Parsers::value_type>...>> {
-    using tuple_type = std::tuple<std::remove_cvref_t<typename Parsers::value_type>...>;
+    -> parser<std::tuple<typename std::remove_cvref_t<Parsers>::value_type...>> {
+    using tuple_type = std::tuple<typename std::remove_cvref_t<Parsers>::value_type...>;
     using result_type = result<tuple_type>;
     return [xt = std::make_tuple(std::forward<Parsers>(ps)...)](std::istream& is) -> result_type {
         std::streampos initial{is.tellg()};
