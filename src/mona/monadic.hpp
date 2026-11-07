@@ -17,6 +17,51 @@ struct parser : std::function<result<T>(std::istream&)> {
     constexpr parser(parser<T> (*ptr)()) : parser(ptr()) {}
 };
 
+[[nodiscard]] inline parser<char> _symbol(const std::string& error) noexcept {
+    return [error](std::istream& is) -> result<char> {
+        char v = is.get();
+        if (v == std::char_traits<char>::eof()) {
+            return std::unexpected(error);
+        }
+        if (v == '\n' || v == '\r') {
+            is.unget();
+            return std::unexpected(error);
+        }
+        return v;
+    };
+};
+
+[[nodiscard]] inline parser<char> _symbol() noexcept {
+    return _symbol("unexpected token in _symbol parser");
+};
+
+inline parser<std::string> _symbols(const std::string& error_message) {
+    return [=](std::istream& is) -> result<std::string> {
+        std::streampos starting_pos{is.tellg()};
+        auto old_state = is.rdstate();
+        auto symbol_parser = _symbol();
+        std::string ret = "";
+        while (true) {
+            auto v = symbol_parser(is);
+            if (v.has_value()) {
+                ret += v.value();
+            } else {
+                break;
+            }
+        }
+        if (ret.empty()) {
+            is.clear(old_state);
+            is.seekg(starting_pos);
+            return std::unexpected(error_message);
+        }
+        return ret;
+    };
+}
+
+inline parser<std::string> _symbols() {
+    return _symbols("_symbols parser error");
+}
+
 [[nodiscard]] inline parser<int> _digit(const std::string& error) noexcept {
     return [error](std::istream& is) -> result<int> {
         char v = is.get();
