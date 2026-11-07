@@ -21,6 +21,7 @@ sequence.cpp
 transform.cpp
 number_as.cpp
 and_then.cpp
+letters.cpp
 main.cpp
 )
 

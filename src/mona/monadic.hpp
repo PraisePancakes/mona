@@ -103,6 +103,33 @@ struct parser : std::function<result<T>(std::istream&)> {
     return _letter("unexpected token in _letter parser");
 };
 
+inline parser<std::string> _letters(const std::string& error_message) {
+    return [=](std::istream& is) -> result<std::string> {
+        std::streampos starting_pos{is.tellg()};
+        auto old_state = is.rdstate();
+        auto letter_parser = _letter();
+        std::string ret = "";
+        while (true) {
+            auto v = letter_parser(is);
+            if (v.has_value()) {
+                ret += v.value();
+            } else {
+                break;
+            }
+        }
+        if (ret.empty()) {
+            is.clear(old_state);
+            is.seekg(starting_pos);
+            return std::unexpected(error_message);
+        }
+        return ret;
+    };
+}
+
+inline parser<std::string> _letters() {
+    return _letters("_letters parser error");
+}
+
 template <typename T>
 [[nodiscard]] inline parser<std::vector<T>> _many_or_none(parser<T> p) noexcept {
     return [p](std::istream& is) -> result<std::vector<T>> {
