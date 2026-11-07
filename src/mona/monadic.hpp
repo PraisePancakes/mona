@@ -268,22 +268,28 @@ template <typename T>
 };
 
 template <typename T>
-[[nodiscard]] inline parser<std::vector<T>> _many_or_one(parser<T> p, const std::string& error) noexcept {
+[[nodiscard]] inline parser<std::vector<T>> _many_or_one(
+    parser<T> p,
+    const std::string& error) noexcept {
     return [p, error](std::istream& is) -> result<std::vector<T>> {
-        std::streampos starting_pos{is.tellg()};
-        auto result = p(is);
         std::vector<T> res;
-        while (result.has_value()) {
-            res.push_back(result.value());
-            result = p(is);
+        while (true) {
+            auto starting_pos = is.tellg();
+            auto old_state = is.rdstate();
+            auto result = p(is);
+            if (!result.has_value()) {
+                is.clear();
+                is.seekg(starting_pos);
+                is.clear(old_state);
+                break;
+            }
+            res.push_back(std::move(result.value()));
         }
-        if (res.empty()) {
-            is.seekg(starting_pos);
-            return std::unexpected(error);
-        };
+        if (res.empty()) return std::unexpected(error);
+
         return res;
     };
-};
+}
 
 template <typename T>
 [[nodiscard]] inline parser<std::vector<T>> _many_or_one(parser<T> p) noexcept {
