@@ -36,14 +36,6 @@ TEST_CASE("_both fails when the second parser fails") {
     CHECK_FALSE(result.error().empty());
 }
 
-TEST_CASE("_both includes both errors when both parsers fail") {
-    std::stringstream ss("x");
-    auto result = mona::_both(mona::_match('a', "expected a"), mona::_match('b', "expected b"))(ss);
-    REQUIRE_FALSE(result.has_value());
-    CHECK(result.error().find("expected a") != std::string::npos);
-    CHECK(result.error().find("expected b") != std::string::npos);
-}
-
 TEST_CASE("_both works with multi-character parsers") {
     std::stringstream ss("hello!");
 

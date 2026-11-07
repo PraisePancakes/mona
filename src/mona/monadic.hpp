@@ -317,16 +317,27 @@ template <typename T>
 };
 
 template <typename T>
-[[nodiscard]] inline parser<std::pair<T, T>> _both(parser<T> a, parser<T> b) noexcept {
+[[nodiscard]] inline parser<std::pair<T, T>>
+_both(parser<T> a, parser<T> b) noexcept {
     return [a, b](std::istream& is) -> result<std::pair<T, T>> {
-        std::streampos pos{is.tellg()};
+        const auto pos = is.tellg();
+        auto rollback = [&]() {
+            is.clear();
+            is.seekg(pos);
+        };
         auto v1 = a(is);
+        if (!v1) {
+            auto err = v1.error();
+            rollback();
+            return std::unexpected(err);
+        }
         auto v2 = b(is);
-        if (v1.has_value() && v2.has_value()) return std::make_pair(v1.value(), v2.value());
-        std::string err{""};
-        err += (v1.has_value() ? "" : v1.error()) + "\n" + (v2.has_value() ? "" : v2.error());
-        is.seekg(pos);
-        return std::unexpected(std::format("parser _either failed, neither parser accepts the sequence.\n[TRACE]: \n{}", err));
+        if (!v2) {
+            auto err = v2.error();
+            rollback();
+            return std::unexpected(err);
+        }
+        return std::make_pair(std::move(v1.value()), std::move(v2.value()));
     };
 }
 
