@@ -84,6 +84,36 @@ inline parser<std::string> _symbols() {
     return _symbols("_symbols parser error");
 }
 
+template <typename... Es>
+    requires(std::is_same_v<Es, char> && ...)
+inline parser<std::string> _symbols_ex(const std::string& error_message, Es... es) {
+    return [=](std::istream& is) -> result<std::string> {
+        std::streampos starting_pos{is.tellg()};
+        auto old_state = is.rdstate();
+        auto symbol_parser = _symbol_ex(es...);
+        std::string ret = "";
+        while (true) {
+            auto v = symbol_parser(is);
+            if (v.has_value()) {
+                ret += v.value();
+            } else {
+                break;
+            }
+        }
+        if (ret.empty()) {
+            is.clear(old_state);
+            is.seekg(starting_pos);
+            return std::unexpected(error_message);
+        }
+        return ret;
+    };
+}
+template <typename... Es>
+    requires(std::is_same_v<Es, char> && ...)
+inline parser<std::string> _symbols_ex(Es... es) {
+    return _symbols_ex("_symbols parser error", es...);
+}
+
 [[nodiscard]] inline parser<int> _digit(const std::string& error) noexcept {
     return [error](std::istream& is) -> result<int> {
         char v = is.get();
