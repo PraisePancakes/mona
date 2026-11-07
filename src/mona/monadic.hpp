@@ -31,6 +31,28 @@ struct parser : std::function<result<T>(std::istream&)> {
     };
 };
 
+template <typename... Excepts>
+    requires(std::is_same_v<Excepts, char> && ...)
+[[nodiscard]] inline parser<char> _symbol_ex(const std::string& error, Excepts... es) noexcept {
+    std::array<char, sizeof...(Excepts)> arr{es...};
+    return [arr, error](std::istream& is) -> result<char> {
+        int ch = is.get();
+        if (ch == std::char_traits<char>::eof()) return std::unexpected(error);
+        char v = static_cast<char>(ch);
+        if (std::find(arr.begin(), arr.end(), v) != arr.end()) {
+            is.unget();
+            return std::unexpected(error);
+        }
+        return v;
+    };
+};
+
+template <typename... Es>
+    requires(std::is_same_v<Es, char> && ...)
+[[nodiscard]] inline parser<char> _symbol_ex(Es... e) noexcept {
+    return _symbol_ex("unexpected token in _symbol parser", e...);
+}
+
 [[nodiscard]] inline parser<char> _symbol() noexcept {
     return _symbol("unexpected token in _symbol parser");
 };
