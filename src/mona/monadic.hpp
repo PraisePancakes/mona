@@ -436,4 +436,13 @@ template <typename T>
     };
 };
 
+[[nodiscard]] inline parser<bool> _eof() noexcept {
+    return [=](std::istream& ss) -> result<bool> {
+        if (ss.peek() == EOF) {
+            return true;
+        }
+        return std::unexpected("not eof");
+    };
+};
+
 };  // namespace mona

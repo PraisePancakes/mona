@@ -23,6 +23,7 @@ number_as.cpp
 and_then.cpp
 symbols.cpp
 letters.cpp
+eof.cpp
 main.cpp
 )
 
