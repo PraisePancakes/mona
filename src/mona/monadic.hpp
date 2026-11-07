@@ -130,6 +130,33 @@ inline parser<std::string> _letters() {
     return _letters("_letters parser error");
 }
 
+inline parser<std::string> _alnums(const std::string& error_message) {
+    return [=](std::istream& is) -> result<std::string> {
+        std::streampos starting_pos{is.tellg()};
+        auto old_state = is.rdstate();
+        auto alnum_parser = _alnum();
+        std::string ret = "";
+        while (true) {
+            auto v = alnum_parser(is);
+            if (v.has_value()) {
+                ret += v.value();
+            } else {
+                break;
+            }
+        }
+        if (ret.empty()) {
+            is.clear(old_state);
+            is.seekg(starting_pos);
+            return std::unexpected(error_message);
+        }
+        return ret;
+    };
+}
+
+inline parser<std::string> _alnums() {
+    return _alnums("_alnums parser error");
+}
+
 template <typename T>
 [[nodiscard]] inline parser<std::vector<T>> _many_or_none(parser<T> p) noexcept {
     return [p](std::istream& is) -> result<std::vector<T>> {
