@@ -258,14 +258,20 @@ template <typename T>
 [[nodiscard]] inline parser<std::vector<T>> _many_or_none(parser<T> p) noexcept {
     return [p](std::istream& is) -> result<std::vector<T>> {
         std::vector<T> res;
-        auto result = p(is);
-        while (result.has_value()) {
-            res.push_back(result.value());
-            result = p(is);
-        };
+        while (true) {
+            auto pos = is.tellg();
+            auto value = p(is);
+            if (!value.has_value()) {
+                is.clear();
+                is.seekg(pos);
+                if (!is) return std::unexpected("Failed to restore stream position");
+                break;
+            }
+            res.push_back(std::move(value.value()));
+        }
         return res;
     };
-};
+}
 
 template <typename T>
 [[nodiscard]] inline parser<std::vector<T>> _many_or_one(
@@ -396,20 +402,24 @@ template <typename Func, typename T>
 }
 
 template <typename... Ts>
-[[nodiscard]] constexpr parser<std::tuple_element_t<0, std::tuple<Ts...>>> _any(parser<Ts> const&... ts) {
+[[nodiscard]] constexpr parser<std::tuple_element_t<0, std::tuple<Ts...>>>
+_any(parser<Ts> const&... ts) {
     return [=](std::istream& is) -> result<std::tuple_element_t<0, std::tuple<Ts...>>> {
         std::array<parser<std::tuple_element_t<0, std::tuple<Ts...>>>, sizeof...(Ts)> parsers{ts...};
         std::string last_error;
         std::streampos reset{is.tellg()};
+
         for (auto const& v : parsers) {
+            is.clear();
+            is.seekg(reset);
             auto val = v(is);
-            if (val) {
-                return val;
-            }
+            if (val) return val;
             last_error = val.error();
         }
+
         is.clear();
         is.seekg(reset);
+
         return std::unexpected(last_error);
     };
 }
