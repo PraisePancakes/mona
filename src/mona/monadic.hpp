@@ -259,20 +259,14 @@ template <typename T>
 [[nodiscard]] inline parser<std::vector<T>> _many_or_none(parser<T> p) noexcept {
     return [p](std::istream& is) -> result<std::vector<T>> {
         std::vector<T> res;
-        while (true) {
-            auto pos = is.tellg();
-            auto value = p(is);
-            if (!value.has_value()) {
-                is.clear();
-                is.seekg(pos);
-                if (!is) return std::unexpected("Failed to restore stream position");
-                break;
-            }
-            res.push_back(std::move(value.value()));
-        }
+        auto result = p(is);
+        while (result.has_value()) {
+            res.push_back(result.value());
+            result = p(is);
+        };
         return res;
     };
-}
+};
 
 template <typename T>
 [[nodiscard]] inline parser<std::vector<T>> _many_or_one(
