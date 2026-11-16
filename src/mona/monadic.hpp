@@ -20,9 +20,8 @@ struct parser : std::function<result<T>(std::istream&)> {
 [[nodiscard]] inline parser<char> _symbol(const std::string& error) noexcept {
     return [error](std::istream& is) -> result<char> {
         char v = is.get();
-        if (v == std::char_traits<char>::eof()) {
-            return std::unexpected(error);
-        }
+        if (v == std::char_traits<char>::eof()) return std::unexpected(error);
+
         if (v == '\n' || v == '\r') {
             is.unget();
             return std::unexpected(error);
@@ -129,16 +128,18 @@ inline parser<std::string> _symbols_ex(Es... es) {
     return _digit("unexpected token in _digit parser");
 };
 
-[[nodiscard]] inline parser<char> _match(const char char_to_match, const std::string& error) noexcept {
+inline parser<char> _match(const char char_to_match, const std::string& error) noexcept {
     return [error, char_to_match](std::istream& is) -> result<char> {
-        const char v = is.get();
+        const int v = is.get();
+        if (v == std::char_traits<char>::eof()) return std::unexpected(error);
         if (v != char_to_match) {
             is.unget();
             return std::unexpected(error);
         }
-        return v;
+
+        return static_cast<char>(v);
     };
-};
+}
 
 [[nodiscard]] inline parser<char> _match(const char c) noexcept {
     return _match(c, "unexpected token in _match parser");
