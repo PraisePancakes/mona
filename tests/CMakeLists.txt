@@ -26,6 +26,7 @@ letters.cpp
 eof.cpp
 symbol_ex.cpp
 symbols_ex.cpp
+defer.cpp
 main.cpp
 )
 

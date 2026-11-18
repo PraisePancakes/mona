@@ -511,12 +511,23 @@ template <typename T>
 };
 
 [[nodiscard]] inline parser<bool> _eof() noexcept {
-    return [=](std::istream& ss) -> result<bool> {
-        if (ss.peek() == EOF) {
+    return [=](std::istream& is) -> result<bool> {
+        if (is.peek() == std::char_traits<char>::eof() || !is) {
             return true;
         }
         return std::unexpected("not eof");
     };
 };
+
+template <typename Factory>
+inline auto _defer(Factory&& factory) {
+    using factory_type = std::decay_t<Factory>;
+    using parser_type = std::invoke_result_t<factory_type&>;
+    using value_type = typename parser_type::value_type;
+    return parser<value_type>(
+        [f = std::forward<Factory>(factory)](std::istream& is) mutable {
+            return f()(is);
+        });
+}
 
 };  // namespace mona
