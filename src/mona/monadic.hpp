@@ -347,32 +347,46 @@ template <typename T>
     return _both(a, b);
 };
 
+namespace internal {
+
+template <std::size_t Offset, typename ParserTuple, std::size_t... I>
+auto sequence_tuple_type(std::index_sequence<I...>) -> std::tuple<typename std::tuple_element_t<Offset + I, ParserTuple>::value_type...>;
+
+template <std::size_t Offset, typename ParserTuple>
+using sequence_remaining_tuple_t = decltype(sequence_tuple_type<Offset, ParserTuple>(std::make_index_sequence<std::tuple_size_v<ParserTuple> - Offset>{}));
+
+template <std::size_t I = 0, typename ParserTuple>
+auto parse_sequence(ParserTuple& parsers, std::istream& is) -> result<sequence_remaining_tuple_t<I, ParserTuple>> {
+    using tuple_type = sequence_remaining_tuple_t<I, ParserTuple>;
+    if constexpr (I == std::tuple_size_v<ParserTuple>) {
+        return tuple_type{};
+    } else {
+        auto head = std::get<I>(parsers)(is);
+        if (!head.has_value()) return std::unexpected(head.error());
+        auto tail = parse_sequence<I + 1>(parsers, is);
+        if (!tail.has_value()) return std::unexpected(tail.error());
+        return std::tuple_cat(std::make_tuple(std::move(head.value())), std::move(tail.value()));
+    }
+}
+
+}  // namespace internal
+
 template <typename... Parsers>
     requires(std::is_default_constructible_v<typename std::remove_cvref_t<Parsers>::value_type> && ...)
-[[nodiscard]] inline auto _sequence(Parsers&&... ps) noexcept
-    -> parser<std::tuple<typename std::remove_cvref_t<Parsers>::value_type...>> {
+[[nodiscard]] inline auto _sequence(Parsers&&... ps) -> parser<std::tuple<typename std::remove_cvref_t<Parsers>::value_type...>> {
+    using parser_tuple = std::tuple<std::remove_cvref_t<Parsers>...>;
     using tuple_type = std::tuple<typename std::remove_cvref_t<Parsers>::value_type...>;
-    using result_type = result<tuple_type>;
-    return [xt = std::make_tuple(std::forward<Parsers>(ps)...)](std::istream& is) -> result_type {
-        std::streampos initial{is.tellg()};
-        bool has_error{false};
-        std::string error{""};
-        tuple_type res = std::apply([&has_error, &error, &is](auto&&... args) {
-            return std::tuple_cat([&has_error, &error, &is](auto&& arg) {
-                decltype(arg(is)) v = std::forward<decltype(arg)>(arg)(is);
-                if (v.has_value()) return std::make_tuple(v.value());
-                has_error = true;
-                error += v.error() + "\n";
-                return std::make_tuple(typename decltype(arg(is))::value_type{});
-            }(args)...);
-        },
-                                    xt);
-        if (!has_error) return result_type{res};
+    return [parsers = parser_tuple{std::forward<Parsers>(ps)...}](std::istream& is) mutable -> result<tuple_type> {
+        auto initial = is.tellg();
+        auto parsed = internal::parse_sequence(parsers, is);
+        if (parsed.has_value()) return parsed;
+        auto error = parsed.error();
         is.clear();
         is.seekg(initial);
-        return std::unexpected(std::format("parser _sequence failed.\n[TRACE]: \n{}\n", error));
+        return std::unexpected(std::format("parser _sequence failed.\n[TRACE]:\n{}", error));
     };
-};
+}
+
 template <typename T, typename U>
     requires(std::is_default_constructible_v<typename T::value_type> && std::is_default_constructible_v<typename U::value_type>)
 [[nodiscard]] inline auto operator|(T&& a, U&& b) noexcept {
@@ -525,7 +539,7 @@ inline auto _defer(Factory&& factory) {
     using parser_type = std::invoke_result_t<factory_type&>;
     using value_type = typename parser_type::value_type;
     return parser<value_type>(
-        [f = std::forward<Factory>(factory)](std::istream& is) mutable {
+        [f = std::forward<Factory>(factory)](std::istream& is) {
             return f()(is);
         });
 }
